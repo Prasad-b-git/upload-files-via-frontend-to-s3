@@ -1,9 +1,13 @@
 {
   "type": "module",
   "dependencies": {
-    "express": "^4.17.1",
-    "aws-sdk": "^2.879.0",
-    "dotenv": "^8.2.0"
+    "@aws-sdk/client-s3": "^3.637.0",
+    "@azure/storage-blob": "^12.24.0",
+    "aws-sdk": "^2.1686.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^8.6.0",
+    "express": "^4.19.2"
   },
   "scripts": {
     "start": "node server.js"
@@ -11,7 +15,6 @@
   "name": "back",
   "version": "1.0.0",
   "main": "server.js",
-  "devDependencies": {},
   "keywords": [],
   "author": "",
   "license": "ISC",

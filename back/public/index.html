@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="index.css">
+  <title>DUMP STORAGE</title>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>DUMP STORAGE</h1>
+      <div class="tabs">
+        <button class="tab-button active">Upload Image</button>
+      </div>
+    </div>
+    
+    <div class="upload-card">
+      <div class="upload-area">
+        <div class="upload-box">
+          <p>Drag & Drop or Browse to Upload</p>
+          <button class="browse-button">Browse</button>
+        </div>
+        <button class="upload-button">Upload Image</button>
+      </div>
+    </div>
+
+    <div id="fileList" class="file-list"></div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const browseButton = document.querySelector(".browse-button");
+      const uploadButton = document.querySelector(".upload-button");
+      const uploadBox = document.querySelector(".upload-box");
+      const fileListDiv = document.querySelector("#fileList");
+      let selectedFile = null;
+
+      browseButton.addEventListener("click", () => {
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = "image/*";
+        fileInput.style.display = "none";
+        document.body.appendChild(fileInput);
+
+        fileInput.click();
+
+        fileInput.addEventListener("change", (event) => {
+          selectedFile = event.target.files[0];
+          uploadBox.querySelector("p").textContent = selectedFile ? selectedFile.name : "Drag & Drop or Browse to Upload";
+          document.body.removeChild(fileInput);
+        });
+      });
+
+      uploadBox.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadBox.style.borderColor = "#00ff00";
+      });
+
+      uploadBox.addEventListener("dragleave", () => {
+        uploadBox.style.borderColor = "#5d5d5d";
+      });
+
+      uploadBox.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadBox.style.borderColor = "#5d5d5d";
+        selectedFile = e.dataTransfer.files[0];
+        uploadBox.querySelector("p").textContent = selectedFile ? selectedFile.name : "Drag & Drop or Browse to Upload";
+      });
+
+      uploadButton.addEventListener("click", async () => {
+        if (!selectedFile) {
+          console.error("No file selected");
+          return;
+        }
+
+        try {
+          // Get secure URL from your server
+          const response = await fetch("/s3Url");
+          if (!response.ok) throw new Error("Failed to get the signed URL");
+          
+          const { url } = await response.json();
+
+          // Upload the file directly to the S3 bucket
+          const uploadResponse = await fetch(url, {
+            method: "PUT",
+            headers: {
+              "Content-Type": selectedFile.type
+            },
+            body: selectedFile
+          });
+
+          if (!uploadResponse.ok) throw new Error("Failed to upload the file");
+
+          console.log('File uploaded successfully');
+          
+          // Optional: Post request to your server to store any extra data
+          await fetch("/storeFileData", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ fileUrl: url.split('?')[0], extraData: "Your extra data here" })
+          });
+
+          // Display the uploaded file link or preview
+          const img = document.createElement("img");
+          img.src = URL.createObjectURL(selectedFile);
+          img.alt = "Uploaded Image";
+          fileListDiv.appendChild(img);
+
+          // Reset the upload box
+          uploadBox.querySelector("p").textContent = "Drag & Drop or Browse to Upload";
+          selectedFile = null;
+        } catch (error) {
+          console.error('Error during upload:', error);
+        }
+      });
+
+      // Fetch and display the list of S3 bucket objects
+      async function fetchObjectList() {
+        try {
+          const response = await fetch('/listObjects');
+          if (!response.ok) throw new Error("Failed to fetch object list");
+
+          const objects = await response.json();
+
+          if (objects.length > 0) {
+            objects.forEach(objectKey => {
+              const objectUrl = `https://direct-upload-dump.s3.ap-south-1.amazonaws.com/${objectKey}`;
+              const img = document.createElement("img");
+              img.src = objectUrl;
+              img.alt = objectKey;
+              fileListDiv.appendChild(img);
+            });
+          } else {
+            fileListDiv.innerHTML = "<p>No objects found in bucket.</p>";
+          }
+        } catch (error) {
+          console.error('Error fetching object list:', error);
+          fileListDiv.innerHTML = "<p>Failed to load objects.</p>";
+        }
+      }
+
+      fetchObjectList();
+    });
+  </script>
+</body>
+</html>
